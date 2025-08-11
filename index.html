@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docs Library</title>
+  <style>
+    :root {
+      --bg: #f6f8fa;
+      --panel: #ffffff;
+      --panel-2: #f0f4f8;
+      --text: #1a1a1a;
+      --muted: #5f6b7a;
+      --accent: #0066cc;
+      --accent-2: #0099ff;
+      --border: #d0d7de;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        "header header"
+        "sidebar main";
+      height: 100%;
+    }
+    header {
+      grid-area: header;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 5;
+    }
+    header h1 { font-size: 18px; margin: 0; letter-spacing: .4px; }
+    .pill { border:1px solid var(--border); background: var(--panel-2); padding:8px 10px; border-radius: 10px; }
+    .muted { color: var(--muted); }
+    .btn {
+      appearance: none; border:1px solid var(--border); background: var(--panel-2); color: var(--text);
+      padding: 10px 12px; border-radius: 10px; cursor: pointer; font-weight: 600; letter-spacing:.2px;
+    }
+    .btn:hover { border-color: #b6c2cd; box-shadow: 0 0 0 3px rgba(0,102,204,.08) inset; }
+    .btn.secondary { background: #eef2f6; color: var(--muted); }
+    aside {
+      grid-area: sidebar;
+      border-right: 1px solid var(--border);
+      background: var(--panel);
+      overflow: auto;
+    }
+    .sidebar-inner { padding: 16px; }
+    .search { display:flex; gap:8px; margin-bottom: 12px; }
+    .search input {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border:1px solid var(--border);
+      background: #ffffff; color: var(--text);
+    }
+    .tree { margin: 0; padding-left: 0; list-style: none; }
+    .tree li { margin: 4px 0; }
+    .folder, .file { display:flex; align-items:center; gap:8px; }
+    .folder > button { all: unset; cursor: pointer; color: var(--text); }
+    .folder > button:hover { color: var(--accent-2); }
+    .folder-children { margin-left: 16px; }
+    main {
+      grid-area: main; overflow: auto; position: relative; background: var(--panel-2);
+    }
+    .main-inner { padding: 24px 28px 80px; max-width: 980px; margin: 0 auto; }
+    .doc-card { border:1px solid var(--border); background: var(--panel); border-radius: 16px; padding: 18px 18px; margin: 14px 0; }
+    .doc-card h2 { margin: 6px 0 12px; font-size: 20px; }
+    .doc-meta { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .doc-content { line-height: 1.6; }
+    .doc-content h1, .doc-content h2, .doc-content h3 { scroll-margin-top: 90px; }
+    .toc {  border:1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--panel); }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; padding: 2px 6px; border:1px solid var(--border); border-radius: 6px; background: var(--panel-2); color: var(--accent); }
+    .note { font-size: 13px; color: var(--muted); }
+    .footer { text-align:center; color: var(--muted); padding: 24px; }
+    .badge { font-size: 11px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; color: var(--muted); }
+    .controls { display:flex; flex-wrap: wrap; gap:8px; margin-left:auto; }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; grid-template-areas: "header" "main"; }
+      aside { display:none; }
+    }
+  </style>
+  <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>📚 Docs Library</h1>
+      <span class="pill muted">One-page reader for your Google Docs (.docx)</span>
+      <div class="controls">
+        <button id="btn-load-all" class="btn">Load All Docs</button>
+        <button id="btn-clear" class="btn secondary">Clear</button>
+      </div>
+    </header>
+
+    <aside>
+      <div class="sidebar-inner">
+        <div class="search">
+          <input id="search" type="search" placeholder="Search titles… (⌘/Ctrl+K)" />
+          <button id="expandAll" class="btn" title="Expand all">Expand</button>
+          <button id="collapseAll" class="btn secondary" title="Collapse all">Collapse</button>
+        </div>
+        <p class="note">Edit the <span class="kbd">MANIFEST</span> in this file to match your repo folders & files. Keep the same structure; the UI will mirror it.</p>
+        <ul id="tree" class="tree"></ul>
+      </div>
+    </aside>
+
+    <main>
+      <div class="main-inner">
+        <div class="doc-card">
+          <h2>Welcome</h2>
+          <p class="note">Click <b>Load All Docs</b> to render everything on a single page, or browse via the folder tree on the left. Supports <b>.docx</b> exported from Google Docs. For large files, loading may take a moment in the browser.</p>
+          <p class="note">Tip: GitHub Pages does <b>not</b> serve Git LFS files reliably. Prefer committing docs directly (if small), or convert to PDF/Markdown. If you keep .docx, do not store them via LFS for this viewer.</p>
+        </div>
+        <div id="toc" class="toc" hidden></div>
+        <div id="content"></div>
+        <div class="footer">Built for GitHub Pages • Static, client‑side rendering of .docx</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const MANIFEST = [
+  {
+    "title": "Cybersecurity Professional Statement",
+    "path": "docs/Professional Statement/Cybersecurity Professional Statement.docx"
+  },
+  {
+    "title": "Applying the NIST CSF_",
+    "path": "docs/Use The NIST Cybersecurity Framework To Respond To A Security Incident/Applying the NIST CSF_.docx"
+  },
+  {
+    "title": "Incident report analysis",
+    "path": "docs/Use The NIST Cybersecurity Framework To Respond To A Security Incident/Incident report analysis.docx"
+  },
+  {
+    "title": "NIST SP 800-30 Rev. 1",
+    "path": "docs/Analyze A Vulnerable System For A Small Business/NIST SP 800-30 Rev. 1.docx"
+  },
+  {
+    "title": "Vulnerability assessment report",
+    "path": "docs/Analyze A Vulnerable System For A Small Business/Vulnerability assessment report.docx"
+  },
+  {
+    "title": "Apply filters to SQL queries",
+    "path": "docs/Apply Filters To SQL Queries/Apply filters to SQL queries.docx"
+  },
+  {
+    "title": "Table formats",
+    "path": "docs/Apply Filters To SQL Queries/Table formats.docx"
+  },
+  {
+    "title": "Controls and compliance checklist",
+    "path": "docs/Conduct A Security Audit/Controls and compliance checklist.docx"
+  },
+  {
+    "title": "Botium Toys_ Scope, goals, and risk assessment report",
+    "path": "docs/Conduct A Security Audit/Botium Toys_ Scope, goals, and risk assessment report.docx"
+  },
+  {
+    "title": "Algorithm for file updates in Python",
+    "path": "docs/Update A File Through A Python Algorithm/Algorithm for file updates in Python.docx"
+  },
+  {
+    "title": "Current file permissions",
+    "path": "docs/Use Linux Commands To Manage File Permissions/Current file permissions.docx"
+  },
+  {
+    "title": "File permissions in Linux",
+    "path": "docs/Use Linux Commands To Manage File Permissions/File permissions in Linux.docx"
+  },
+  {
+    "title": "Incident handler_s journal_",
+    "path": "docs/Document An Incident With An Incident Handlers Journal/Incident handler_s journal_.docx"
+  }
+];
+
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const byId = id => document.getElementById(id);
+    function escapeHtml(str) { return str.replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[s]); }
+
+    function buildTree(paths) {
+      const root = { name: '', type: 'folder', children: new Map() };
+      for (const item of paths) {
+        const parts = item.path.split('/');
+        let node = root;
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          const isFile = i === parts.length - 1;
+          if (!node.children.has(part)) {
+            node.children.set(part, isFile ? { type: 'file', name: part, item } : { type: 'folder', name: part, children: new Map() });
+          }
+          node = node.children.get(part);
+        }
+      }
+      return root;
+    }
+
+    function renderTree(node, $ul) {
+      for (const child of node.children.values()) {
+        const li = document.createElement('li');
+        if (child.type === 'folder') {
+          const btn = document.createElement('button');
+          btn.textContent = `📂 ${child.name}`;
+          btn.setAttribute('aria-expanded', 'false');
+          const folderDiv = document.createElement('div');
+          folderDiv.className = 'folder';
+          folderDiv.appendChild(btn);
+          li.appendChild(folderDiv);
+
+          const sub = document.createElement('ul');
+          sub.className = 'tree folder-children';
+          sub.hidden = true;
+          renderTree(child, sub);
+          li.appendChild(sub);
+
+          btn.addEventListener('click', () => {
+            const expanded = btn.getAttribute('aria-expanded') === 'true';
+            btn.setAttribute('aria-expanded', String(!expanded));
+            sub.hidden = expanded;
+          });
+        } else {
+          const a = document.createElement('a');
+          a.href = '#';
+          a.textContent = `📄 ${child.item.title || child.name}`;
+          a.className = 'file';
+          a.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await loadSingle(child.item);
+          });
+          li.appendChild(a);
+        }
+        $ul.appendChild(li);
+      }
+    }
+
+    async function fetchDocxAsHtml(path) {
+      const resp = await fetch(path);
+      if (!resp.ok) throw new Error(`Failed to fetch ${path} (${resp.status})`);
+      const arrayBuffer = await resp.arrayBuffer();
+      const { value: html } = await window.mammoth.convertToHtml({ arrayBuffer }, { styleMap: [
+        "p[style-name='Title'] => h1:fresh",
+        "p[style-name='Heading 1'] => h2:fresh",
+        "p[style-name='Heading 2'] => h3:fresh",
+        "p[style-name='Heading 3'] => h4:fresh",
+      ]});
+      return html;
+    }
+
+    function addDocSection({ title, path }, html) {
+      const id = 'doc-' + path.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+      const wrap = document.createElement('article');
+      wrap.className = 'doc-card';
+      wrap.id = id;
+      wrap.innerHTML = `
+        <div class="doc-meta"><span class="badge">${escapeHtml(path)}</span></div>
+        <h2>${escapeHtml(title || path.split('/').pop())}</h2>
+        <div class="doc-content">${html}</div>
+      `;
+      byId('content').appendChild(wrap);
+      return id;
+    }
+
+    function rebuildTOC() {
+      const headers = $$('#content .doc-card h2, #content .doc-card h3');
+      const toc = byId('toc');
+      if (headers.length === 0) { toc.hidden = true; toc.innerHTML = ''; return; }
+      toc.hidden = false;
+      toc.innerHTML = '<b>On this page</b><br/>';
+      const ul = document.createElement('ul');
+      ul.style.listStyle = 'none'; ul.style.paddingLeft = '0';
+      headers.forEach(h => {
+        const li = document.createElement('li');
+        li.style.margin = '6px 0';
+        const a = document.createElement('a');
+        a.textContent = h.textContent;
+        a.href = '#' + h.closest('.doc-card').id;
+        a.style.color = 'inherit';
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+      toc.appendChild(ul);
+    }
+
+    async function loadSingle(item) {
+      byId('content').innerHTML = '';
+      const spinner = document.createElement('div');
+      spinner.className = 'note';
+      spinner.textContent = `Loading “${item.title}”…`;
+      byId('content').appendChild(spinner);
+      try {
+        const html = await fetchDocxAsHtml(item.path);
+        byId('content').innerHTML = '';
+        addDocSection(item, html);
+        rebuildTOC();
+      } catch (err) {
+        byId('content').innerHTML = `<div class="doc-card"><h2>Failed to load</h2><p class="note">${escapeHtml(err.message)}</p></div>`;
+      }
+    }
+
+    async function loadAll() {
+      byId('content').innerHTML = '';
+      for (const item of MANIFEST) {
+        const card = document.createElement('div');
+        card.className = 'doc-card';
+        card.innerHTML = `<div class="doc-meta"><span class="badge">${escapeHtml(item.path)}</span></div><h2>${escapeHtml(item.title || item.path.split('/').pop())}</h2><div class="doc-content"><em class="muted">Loading…</em></div>`;
+        byId('content').appendChild(card);
+        try {
+          const html = await fetchDocxAsHtml(item.path);
+          card.querySelector('.doc-content').innerHTML = html;
+          card.id = 'doc-' + item.path.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+        } catch (err) {
+          card.querySelector('.doc-content').innerHTML = `<span class="note">${escapeHtml(err.message)}</span>`;
+        }
+      }
+      rebuildTOC();
+      location.hash = '#content';
+    }
+
+    function init() {
+      const treeData = buildTree(MANIFEST);
+      const treeEl = byId('tree');
+      renderTree(treeData, treeEl);
+
+      byId('btn-load-all').addEventListener('click', loadAll);
+      byId('btn-clear').addEventListener('click', () => { byId('content').innerHTML = ''; rebuildTOC(); });
+
+      const search = byId('search');
+      search.addEventListener('input', () => {
+        const q = search.value.toLowerCase();
+        treeEl.querySelectorAll('a').forEach(a => {
+          const show = a.textContent.toLowerCase().includes(q);
+          a.parentElement.style.display = show ? '' : 'none';
+        });
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); search.focus(); }
+      });
+
+      byId('expandAll').addEventListener('click', () => {
+        treeEl.querySelectorAll('ul.folder-children').forEach(ul => ul.hidden = false);
+        treeEl.querySelectorAll('.folder > button').forEach(btn => btn.setAttribute('aria-expanded', 'true'));
+      });
+      byId('collapseAll').addEventListener('click', () => {
+        treeEl.querySelectorAll('ul.folder-children').forEach(ul => ul.hidden = true);
+        treeEl.querySelectorAll('.folder > button').forEach(btn => btn.setAttribute('aria-expanded', 'false'));
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
